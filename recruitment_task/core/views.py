@@ -5,8 +5,11 @@ from rest_framework.views import APIView
 
 from core.businesslogic.errors import CannotInvestIntoProjectException
 from core.businesslogic.investing import invest_into_project
+from core.businesslogic.matching import matching_logic
+
 from core.models import Project, Investor
-from core.serializers import ProjectSerializer, ProjectDetailsSerializer, InvestorSerializer, InvestorDetailsSerializer
+from core.serializers import ProjectSerializer, ProjectDetailsSerializer,\
+    InvestorSerializer, InvestorDetailsSerializer
 
 
 class ProjectsView(generics.ListCreateAPIView):
@@ -37,6 +40,11 @@ class ProjectDetailsView(generics.RetrieveUpdateAPIView):
 
         return Response(serializer.data)
 
+    def get(self, request, *args, **kwargs):
+        response = super().get(self.request)
+        response.data["matches"] = matching_logic(self.get_object(), Investor.objects.all())
+        return(response)
+
 
 class InvestorsView(generics.ListCreateAPIView):
     queryset = Investor.objects.all()
@@ -62,6 +70,11 @@ class InvestorDetailsView(generics.RetrieveUpdateAPIView):
         serializer.save()
 
         return Response(serializer.data)
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(self.request)
+        response.data["matches"] = matching_logic(self.get_object(), Project.objects.all())
+        return(response)
 
 
 class InvestIntoProject(APIView):
@@ -92,22 +105,12 @@ class BaseMatches(APIView):
     def get(self, request, pk):
         base_object = get_object_or_404(self.base, pk=pk)
         matches_objects = self.matches.objects.all()
-        matches_list = []
-        for object in matches_objects:
-            try:
-                if self.base == Project:
-                    invest_into_project(object, base_object)
-                else:
-                    invest_into_project(base_object, object)
-            except CannotInvestIntoProjectException:
-                pass
-            else:
-                matches_list.append(object.id)
+        matches_list = matching_logic(base_object, matches_objects)
 
         return Response(
             data={
                 "matches": matches_list
-            }
+            }, status=status.HTTP_200_OK
         )
 
 
