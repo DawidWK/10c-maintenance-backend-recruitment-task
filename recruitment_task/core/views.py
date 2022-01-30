@@ -82,3 +82,40 @@ class InvestIntoProject(APIView):
                 "remaining_amount": investor.remaining_amount
             }
         )
+
+
+class BaseMatches(APIView):
+    """Base view for matching two elements"""
+    base = Investor
+    matches = Project
+
+    def get(self, request, pk):
+        base_object = get_object_or_404(self.base, pk=pk)
+        matches_objects = self.matches.objects.all()
+        matches_list = []
+        for object in matches_objects:
+            try:
+                if self.base == Project:
+                    invest_into_project(object, base_object)
+                else:
+                    invest_into_project(base_object, object)
+            except CannotInvestIntoProjectException:
+                pass
+            else:
+                matches_list.append(object.id)
+
+        return Response(
+            data={
+                "matches": matches_list
+            }
+        )
+
+
+class InvestorMatches(BaseMatches):
+    base = Investor
+    matches = Project
+
+
+class ProjectMatches(BaseMatches):
+    base = Project
+    matches = Investor
