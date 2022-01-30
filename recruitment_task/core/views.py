@@ -87,8 +87,16 @@ class InvestIntoProject(APIView):
         except CannotInvestIntoProjectException as e:
             return Response(data={"details": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        investor.refresh_from_db()
+        project_to_invest_into.funded_by = investor
+        project_to_invest_into.funded = True
+        project_to_invest_into.save()
+
+        investor.remaining_amount -= project_to_invest_into.amount
+        investor.save()
+
         project_to_invest_into.refresh_from_db()
+        investor.refresh_from_db()
+
         return Response(
             data={
                 "funded_project": ProjectSerializer(instance=project_to_invest_into).data,
